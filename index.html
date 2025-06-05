@@ -155,6 +155,11 @@
             box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.2);
         }
 
+        .keyboard-active-input {
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 4px rgba(247, 37, 133, 0.2) !important;
+        }
+
         .btn {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             color: white;
@@ -273,6 +278,11 @@
             padding: 20px;
             border: 1px solid #e1e5eb;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .chart-download-btn {
+            margin-top: 15px;
+            width: 100%;
         }
 
         .actions {
@@ -528,7 +538,7 @@
         .term-operator {
             width: 80px;
         }
-        
+
         .combination-display {
             background: white;
             padding: 15px;
@@ -537,6 +547,16 @@
             font-size: 1.2rem;
             border: 1px solid #e1e5eb;
             text-align: center;
+        }
+
+        /* Download button specific styles */
+        .download-btn {
+            margin-top: 15px;
+            width: 100%;
+        }
+
+        .sum-download-btn {
+            margin-top: 15px;
         }
     </style>
 </head>
@@ -557,7 +577,7 @@
                         <span class="tooltiptext">Enter the number of differential equations in your system (1-10)</span>
                     </span>
                 </label>
-                <input type="number" id="numEquations" min="1" max="10" value="2">
+                <input type="number" id="numEquations", min="1", max="10", value="2">
             </div>
             
             <button id="configureBtn" class="btn mobile-btn">
@@ -591,7 +611,7 @@
                                 <span class="tooltiptext">The increment value for each step</span>
                             </span>
                         </label>
-                        <input type="number" id="stepSize" step="0.01" min="0.001" value="0.1">
+                        <input type="number" id="stepSize", step="0.01", min="0.001", value="0.1">
                     </div>
                     
                     <div class="form-group">
@@ -601,7 +621,7 @@
                                 <span class="tooltiptext">Total steps to compute</span>
                             </span>
                         </label>
-                        <input type="number" id="numSteps" min="10" max="1000" value="100">
+        <input type="number" id="numSteps", min="10", max="1000", value="100">
                     </div>
                     
                     <div class="form-group">
@@ -611,7 +631,7 @@
                                 <span class="tooltiptext">Starting time value</span>
                             </span>
                         </label>
-                        <input type="number" id="initialTime" step="0.1" value="0">
+                        <input type="number" id="initialTime", step="0.1", value="0">
                     </div>
                 </div>
                 
@@ -658,6 +678,9 @@
                     <div class="chart-container">
                         <canvas id="sumChart"></canvas>
                     </div>
+                    <button id="sumDownloadBtn" class="btn sum-download-btn" style="display: none;">
+                        <i class="fas fa-download"></i> Download Sum Chart
+                    </button>
                 </div>
                 
                 <div class="tab-content" id="combination-tab">
@@ -684,12 +707,12 @@
                     <div class="chart-container">
                         <canvas id="combinationChart"></canvas>
                     </div>
+                    <button id="combinationDownloadBtn" class="btn sum-download-btn" style="display: none;">
+                        <i class="fas fa-download"></i> Download Combination Chart
+                    </button>
                 </div>
                 
                 <div class="actions">
-                    <button id="downloadChartBtn" class="btn">
-                        <i class="fas fa-download"></i> Download All Charts
-                    </button>
                     <button id="showTableBtn" class="btn btn-warning">
                         <i class="fas fa-table"></i> Show/Hide Data Table
                     </button>
@@ -732,7 +755,8 @@
         const resultsBody = document.getElementById('resultsBody');
         const tableContainer = document.getElementById('tableContainer');
         const showTableBtn = document.getElementById('showTableBtn');
-        const downloadChartBtn = document.getElementById('downloadChartBtn');
+        const sumDownloadBtn = document.getElementById('sumDownloadBtn');
+        const combinationDownloadBtn = document.getElementById('combinationDownloadBtn');
         const downloadEquationBtn = document.getElementById('downloadEquationBtn');
         const individualChartsContainer = document.getElementById('individual-charts');
         const sumControls = document.getElementById('sum-controls');
@@ -780,13 +804,16 @@
                 virtualKeyboard.appendChild(key);
             });
 
-            // Add event delegation
+            // Add event delegation with better input detection
             virtualKeyboard.addEventListener('click', (e) => {
                 if (e.target.classList.contains('key')) {
                     const symbol = e.target.textContent;
                     const activeInput = document.activeElement;
                     
-                    if (activeInput && activeInput.classList.contains('equation-input')) {
+                    // Check if active element is an input field (including dynamically created ones)
+                    if (activeInput && (activeInput.classList.contains('equation-input') || 
+                                        activeInput.tagName === 'INPUT' && 
+                                        (activeInput.id.startsWith('func') || activeInput.id.startsWith('init')))) {
                         const startPos = activeInput.selectionStart;
                         const endPos = activeInput.selectionEnd;
                         const currentValue = activeInput.value;
@@ -797,14 +824,14 @@
                         if (symbol === '√()') {
                             insertText = 'sqrt()';
                             activeInput.value = currentValue.substring(0, startPos) + 
-                                            insertText + 
-                                            currentValue.substring(endPos);
+                                             insertText + 
+                                             currentValue.substring(endPos);
                             // Position cursor inside parentheses
                             activeInput.selectionStart = activeInput.selectionEnd = startPos + 5;
                         } else {
                             activeInput.value = currentValue.substring(0, startPos) + 
-                                            insertText + 
-                                            currentValue.substring(endPos);
+                                             insertText + 
+                                             currentValue.substring(endPos);
                             activeInput.selectionStart = activeInput.selectionEnd = startPos + insertText.length;
                         }
                         
@@ -1011,6 +1038,9 @@
                     }
                 }
             });
+
+            // Show the download button for combination chart
+            combinationDownloadBtn.style.display = 'block';
         }
 
         // Configure system based on number of equations
@@ -1037,6 +1067,14 @@
                 input.className = 'equation-input';
                 input.placeholder = `Enter function for d${variableNames[i]}/dt...`;
                 input.addEventListener('input', updateEquationDisplay);
+                
+                // Add focus event to help virtual keyboard detect active input
+                input.addEventListener('focus', function() {
+                    this.classList.add('keyboard-active-input');
+                });
+                input.addEventListener('blur', function() {
+                    this.classList.remove('keyboard-active-input');
+                });
                 
                 // Set example equations
                 if (i === 0) input.value = '-0.5*x + y';
@@ -1294,7 +1332,21 @@
                 const chartContainer = document.createElement('div');
                 chartContainer.className = 'chart-container';
                 chartContainer.innerHTML = `<canvas id="chart-${i}"></canvas>`;
-                individualChartsContainer.appendChild(chartContainer);
+                
+                // Create download button for this chart
+                const downloadBtn = document.createElement('button');
+                downloadBtn.className = 'btn download-btn';
+                downloadBtn.innerHTML = `<i class="fas fa-download"></i> Download ${variableNames[i]} Chart`;
+                downloadBtn.addEventListener('click', () => {
+                    downloadChart(chartInstances[i], `variable-${variableNames[i]}-chart.png`);
+                });
+                
+                // Create container for chart and button
+                const chartWrapper = document.createElement('div');
+                chartWrapper.appendChild(chartContainer);
+                chartWrapper.appendChild(downloadBtn);
+                
+                individualChartsContainer.appendChild(chartWrapper);
                 
                 // Create chart
                 const ctx = chartContainer.querySelector(`#chart-${i}`).getContext('2d');
@@ -1388,15 +1440,41 @@
                 checkboxDiv.appendChild(label);
                 sumControls.appendChild(checkboxDiv);
             }
-            
+
             const sumButton = document.createElement('button');
             sumButton.className = 'btn';
             sumButton.textContent = 'Plot Sum';
             sumButton.addEventListener('click', plotSum);
             sumControls.appendChild(sumButton);
             
+            // Set up sum download button
+            sumDownloadBtn.addEventListener('click', () => {
+                if (sumChartInstance) {
+                    downloadChart(sumChartInstance, 'sum-chart.png');
+                }
+            });
+
+            // Set up combination download button
+            combinationDownloadBtn.addEventListener('click', () => {
+                if (combinationChartInstance) {
+                    downloadChart(combinationChartInstance, 'combination-chart.png');
+                }
+            });
+            
             // Update data table
             updateDataTable(data);
+        }
+
+        // Helper function to download a chart
+        function downloadChart(chart, filename) {
+            if (!chart) return;
+            
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = chart.toBase64Image('image/png');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         // Plot sum of selected variables
@@ -1489,6 +1567,9 @@
                     }
                 }
             });
+
+            // Show the download button for sum chart
+            sumDownloadBtn.style.display = 'block';
         }
 
         // Update data table with results
@@ -1557,34 +1638,6 @@
             }
         });
 
-        // Download all charts as PNG images
-        downloadChartBtn.addEventListener('click', async () => {
-            const allCanvases = [
-                ...document.querySelectorAll('#individual-charts canvas'),
-                document.getElementById('sumChart'),
-                document.getElementById('combinationChart')
-            ].filter(canvas => canvas);
-            
-            for (let i = 0; i < allCanvases.length; i++) {
-                const canvas = allCanvases[i];
-                if (canvas) {
-                    const link = document.createElement('a');
-                    let chartName = 'chart';
-                    
-                    if (canvas.id === 'sumChart') chartName = 'sum-chart';
-                    else if (canvas.id === 'combinationChart') chartName = 'combination-chart';
-                    else chartName = `variable-${variableNames[i]}-chart`;
-                    
-                    link.download = `${chartName}.png`;
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-                    
-                    // Small delay between downloads
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                }
-            }
-        });
-
         // Download equations as PNG with improved quality
         downloadEquationBtn.addEventListener('click', async () => {
             try {
@@ -1592,16 +1645,19 @@
                 const tempContainer = document.createElement('div');
                 tempContainer.style.position = 'absolute';
                 tempContainer.style.left = '-9999px';
-                tempContainer.style.padding = '40px';
+                tempContainer.style.padding = '60px';
                 tempContainer.style.background = 'white';
-                tempContainer.style.borderRadius = '10px';
+                tempContainer.style.borderRadius = '20px';
                 tempContainer.style.boxShadow = '0 10px 30px rgba(0,0,0,0.1)';
+                tempContainer.style.minWidth = '800px'; // Ensure enough width
                 
                 const tempMath = document.createElement('div');
                 tempMath.id = 'temp-math-equations';
-                tempMath.style.fontSize = '2rem';
+                tempMath.style.fontSize = '2.5rem';
                 tempMath.style.color = '#212529';
                 tempMath.style.fontWeight = '500';
+                tempMath.style.lineHeight = '4rem'; // Add line spacing
+                tempMath.style.margin = '20px 0';
                 tempMath.innerHTML = mathEquations.innerHTML;
                 
                 tempContainer.appendChild(tempMath);
@@ -1661,7 +1717,7 @@
 
         // Initial setup
         initVirtualKeyboard();
-        
+                
         // Initialize tab functionality
         document.querySelector('.tab-btn[data-tab="individual"]').click();
     </script>
